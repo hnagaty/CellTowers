@@ -1,0 +1,83 @@
+---
+title: "Egypy Cell Towers"
+author: "Hany Nagaty"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+I came across the [OpenCelliD](https://opencellid.org) web site that has a database for all the cell sites in the globe. I downloaded the data for Egypt, all 4 operators, and I’m presenting them here.
+
+Just mind the license that states that “*Data is free to use & distribute. We only ask that you include the following attribution string visibly.*”
+
+***[OpenCelliD Project](https://opencellid.org/) is licensed under a [Creative Commons Attribution-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-sa/4.0/)*** 
+
+### Useful Links
++ This link has a description for the data http://wiki.opencellid.org/wiki/Menu_map_view#Cells_database
+
++ This is a useful FAQ http://wiki.opencellid.org/wiki/FAQ
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(knitr)
+```
+
+
+```{r readData, include=FALSE}
+cell_towers <- read_csv(
+  "~/dataLocal/cellTowers/cell_towers.csv",
+  col_type = cols(
+    radio = col_factor(),
+    mcc = col_double(),
+    net = col_double(),
+    area = col_double(),
+    cell = col_double(),
+    unit = col_double(),
+    lon = col_double(),
+    lat = col_double(),
+    range = col_double(),
+    samples = col_double(),
+    changeable = col_double(),
+    created = col_double(),
+    updated = col_double(),
+    averageSignal = col_double())
+)
+
+egypt <- cell_towers %>% 
+  filter(mcc == 602) %>% 
+  mutate(created = as.POSIXct(created, origin="1970-01-01"),
+         updated = as.POSIXct(updated, origin="1970-01-01")) %>% 
+  mutate(created_date = as.Date(created),
+         created_week = floor_date(created, unit = "week"),
+         created_month = floor_date(created, unit = "month"))
+```
+
+### Summary Table
+```{r table, echo=FALSE, message=FALSE, warning=FALSE}
+egypt %>% 
+  mutate(radio = fct_drop(radio)) %>% 
+  rename("Network" = "net") %>% 
+  tabyl(Network, radio) %>% 
+  adorn_percentages("row") %>%
+  adorn_pct_formatting(digits = 2) %>% 
+  adorn_ns() %>% 
+  kable()
+```
+
+### Time Plot
+```{r plot, echo=FALSE, message=FALSE, warning=FALSE}
+egypt %>% 
+  mutate(radio = fct_drop(radio)) %>% 
+  rename("Network" = "net") %>% 
+  group_by(created_week, Network, radio) %>% 
+  count() %>% 
+  ungroup(created_week) %>% 
+  mutate(cells = cumsum(n)) %>% 
+  ggplot(aes(x = created_week, y = cells, col = radio)) +
+  geom_line() +
+  facet_wrap(vars(Network), labeller = "label_both")
+```
+
